@@ -1,0 +1,44 @@
+# --- ML & data artifacts ---
+mlruns/
+artifacts/
+models/
+*.log
+*.h5
+*.pkl
+*.joblib
+*.ckpt
+
+# --- Data files ---
+data/
+*.csv
+*.tsv
+*.json
+*.xlsx
+*.parquet
+*.zip
+*.gz
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+build/
+dist/
+
+# --- Virtual environments ---
+.env
+.venv/
+env/
+venv/
+ENV/
+*.env
+
+# --- CI/CD secrets ---
+*.pem
+*.key
+.envrc
+.env.*
