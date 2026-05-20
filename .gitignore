@@ -8,6 +8,7 @@ models/
 *.joblib
 *.ckpt
 
+
 # --- Data files ---
 data/
 *.csv
@@ -17,6 +18,8 @@ data/
 *.parquet
 *.zip
 *.gz
+*.md
+*.pdf
 
 # --- Python ---
 __pycache__/
