@@ -28,7 +28,12 @@ except ImportError:
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
 CV_FOLDS = 5
-DEFAULT_SCORING = "accuracy"
+DEFAULT_SCORING = {
+    "f1": "f1",
+    "roc_auc": "roc_auc",
+}
+
+DEFAULT_REFIT_METRIC = "f1"
 
 VARIANTS = {"full", "without_deposit_type", "without_deposit_type_and_parking"}
 
@@ -59,12 +64,12 @@ Model = namedtuple("Model", "factory requires_scaling param_grid")
 
 MODELS = {
     "logistic_regression": Model(
-        factory=lambda: LogisticRegression(max_iter=500, random_state=RANDOM_STATE),
+        factory=lambda: LogisticRegression(max_iter=500, C=10, solver="liblinear", random_state=RANDOM_STATE),
         requires_scaling=True,
         param_grid={"C": [0.01, 0.1, 1, 10], "solver": ["liblinear"]},
     ),
     "random_forest": Model(
-        factory=lambda: RandomForestClassifier(n_estimators=200, random_state=RANDOM_STATE, n_jobs=-1),
+        factory=lambda: RandomForestClassifier(n_estimators=300, random_state=RANDOM_STATE, min_samples_split=5, min_samples_leaf=2, max_features=0.5, max_depth=None, class_weight="balanced"),
         requires_scaling=False,
         param_grid=None,
     ),
@@ -81,7 +86,7 @@ def _get_model(model_name):
         return MODELS[model_name]
     except KeyError as exc:
         raise ValueError(
-            f"Unknown model '{model_name}'. Available models: {sorted(MODELS)}"
+            f"Modelo desconocido '{model_name}'. Modelos disponibles: {sorted(MODELS)}"
         ) from exc
 
 
@@ -143,7 +148,7 @@ def prepare_dataset(
     scale=None,
 ):
     if variant not in VARIANTS:
-        raise ValueError(f"Unknown variant '{variant}'. Available variants: {sorted(VARIANTS)}")
+        raise ValueError(f"Variante de entrenamiento desconocida '{variant}'. Variantes disponibles: {sorted(VARIANTS)}")
     model = _get_model(model_name)
 
     df = df.copy()
@@ -202,7 +207,7 @@ def train_classifier(
     search: GridSearchCV | None = None
 
     if should_search and grid is not None:
-        search = GridSearchCV(estimator=estimator, param_grid=grid, cv=cv, scoring=scoring)
+        search = GridSearchCV(estimator=estimator, param_grid=grid, cv=cv, scoring=scoring, refit=DEFAULT_REFIT_METRIC)
         search.fit(prepared.X_train, prepared.y_train)
         fitted = search.best_estimator_
     else:

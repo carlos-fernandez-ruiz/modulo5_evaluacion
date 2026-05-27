@@ -53,7 +53,7 @@ def preprocess(df_raw, drop_invalid_rows=True):
     df = _one_hot(df, "meal")
     df = _one_hot(df, "deposit_type")
 
-    assert df.isna().sum().sum() == 0, "preprocessed frame has NaNs"
+    assert df.isna().sum().sum() == 0, "datos preprocesados contienen valores nulos"
     return df
 
 

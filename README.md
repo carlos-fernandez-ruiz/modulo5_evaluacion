@@ -24,6 +24,11 @@ no es simétrico al de una falsa alarma. Por ello se calculan un conjunto de mé
 (accuracy, precision, recall, F1 y ROC-AUC) y se usa F1 / ROC-AUC como criterio de
 comparación, mas interesante debido a la naturaleza del problema.
 
+En el problema propuesto, se asume que el coste de no detectar una reserva que se cancelará 
+es mayor (habitación vacía) que predecir una cancelación que al final no se produce, pero 
+no tan critico como para usar recall unicamente.
+
+
 
 ## Estructura del proyecto
 
@@ -110,6 +115,11 @@ El flujo está separado en módulos reutilizables:
    - Tres variantes: `full`, `without_deposit_type`,
      `without_deposit_type_and_parking`. Debido a que estas variables pueden
 	  influir altamente en el resultado y no sabemos si son válidas o no.
+	  A modo de ejemplo, en un random forest el deposit_type es la variable con
+	  mas influencia con un x3 respecto a la segunda:
+	  	variable	importancia
+		deposit_type_Non Refund	0.312276
+		lead_time				0.108594
    - `train_test_split` estratificado (`test_size=0.2`, `random_state=42`).
    - Escalado de las variables continuas con `StandardScaler` (ajustado solo en
      train) cuando el modelo lo requiere.
@@ -127,3 +137,12 @@ El flujo está separado en módulos reutilizables:
    - `model_store.save/load/list_models`: guarda estimador, scaler y `metadata.json`
      bajo `models/<model_name>__<variant>__<timestamp>/`.
    - `predictor.predict`: reaplica el mismo preprocesado y escalado a filas crudas.
+
+
+## Anotaciones clave
+
+1. LogisticRegression: Se utiliza un GridSearchCV para la búsqueda de mejores parametros
+   (ver notebook evaluacionModelos) 
+
+2. RandomForestClassifier: Se utiliza un RandomizedSearchCV para la búsqueda de mejores parametros
+   (ver notebook randomForestnotebook)
