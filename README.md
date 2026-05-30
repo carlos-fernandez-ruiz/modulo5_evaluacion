@@ -63,6 +63,7 @@ Las decisiones principales:
 
 - `reservation_status` y `reservation_status_date`: filtran información posterior a la
   reserva (data leakage) — conocerlas equivaldría a conocer ya la cancelación.
+- `arrival_date_year`: sin sentido para predicciones presentes o futuras
 - `agent` y `company`: con muchos nulos; se sustituyen por las banderas binarias
   `has_agent` y `has_company` (presencia/ausencia).
 - `assigned_room_type`: redundante con `reserved_room_type` y solo conocida tras el

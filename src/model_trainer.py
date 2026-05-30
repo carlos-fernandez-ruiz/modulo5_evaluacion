@@ -15,13 +15,14 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.model_selection import GridSearchCV, train_test_split
-from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
 try:
     from .data_loader_simple import TARGET_COLUMN, load_and_preprocess
+    from .keras_neural_network import KerasNeuralNetwork
 except ImportError:
     from data_loader_simple import TARGET_COLUMN, load_and_preprocess
+    from keras_neural_network import KerasNeuralNetwork
 
 
 RANDOM_STATE = 42
@@ -59,6 +60,14 @@ CONTINUOUS_COLUMNS = [
     "total_of_special_requests",
     "total_guests",
     "total_nights",
+]
+
+# Columnas muy sesgadas a la derecha: log1p antes de escalar mejora LR y NN.
+LOG_COLUMNS = [
+    "lead_time",
+    "days_in_waiting_list",
+    "previous_cancellations",
+    "previous_bookings_not_canceled",
 ]
 
 
@@ -186,11 +195,7 @@ def build_estimator(model_name):
         return RandomForestClassifier(n_estimators=300, random_state=RANDOM_STATE, min_samples_split=5, min_samples_leaf=2, max_features=0.5, max_depth=None, class_weight="balanced")
 
     if model_name == "neural_network":
-        return MLPClassifier(
-            hidden_layer_sizes=(64, 32),
-            max_iter=300,
-            random_state=RANDOM_STATE,
-        )
+        return KerasNeuralNetwork()
 
     raise ValueError(f"Modelo desconocido '{model_name}'. Modelos disponibles: {list(MODELS)}")
 
@@ -214,10 +219,10 @@ def default_param_grid(model_name):
         }
 
     if model_name == "neural_network":
-        return {
-            "hidden_layer_sizes": [(64,), (64, 32)],
-            "alpha": [0.0001, 0.001],
-        }
+        raise ValueError(
+            "La red neuronal usa una configuración fija; "
+            "explora hiperparámetros en el notebook, no con GridSearch."
+        )
 
     raise ValueError(f"Modelo desconocido '{model_name}'. Modelos disponibles: {list(MODELS)}")
 
@@ -225,6 +230,11 @@ def default_param_grid(model_name):
 def scale_features(X_train, X_test):
     X_train = X_train.copy()
     X_test = X_test.copy()
+
+    log_columns = [column for column in LOG_COLUMNS if column in X_train.columns]
+    X_train[log_columns] = np.log1p(X_train[log_columns])
+    X_test[log_columns] = np.log1p(X_test[log_columns])
+
     scaled_columns = [column for column in CONTINUOUS_COLUMNS if column in X_train.columns]
 
     scaler = StandardScaler()
