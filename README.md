@@ -129,7 +129,10 @@ El flujo está separado en módulos reutilizables:
      probabilidades y ranking de variables. Con `variant="all"` entrena las tres
      variantes a la vez.
    - Modelos disponibles en el pipeline:     
-     `logistic_regression`, `random_forest` ,`neural_network`
+     `logistic_regression`, `decision_tree`, `random_forest`, `gradient_boosting`, `support_vector_machine`, `neural_network`
+   La rama de trabajo de arboles incluye `decision_tree` y `gradient_boosting` en el pipeline ejecutable.
+   Ambos modelos usan las tres variantes de variables y pueden entrenarse sin mover notebooks:
+   `python -m src.train_tree_models --variant all`
 
    La comparativa exploratoria ampliada (árbol de decisión, boosting, red Keras…)
    se encuentra en los notebooks.
@@ -147,3 +150,9 @@ El flujo está separado en módulos reutilizables:
 
 2. RandomForestClassifier: Se utiliza un RandomizedSearchCV para la búsqueda de mejores parametros
    (ver notebook randomForestnotebook)
+
+3. DecisionTreeClassifier: Se integra como modelo interpretable de la rama de arboles. No requiere escalado y usa `class_weight="balanced"` como configuracion base.
+
+4. GradientBoosting: Se integra como modelo boosting de la rama de arboles usando XGBoost (`XGBClassifier`)
+
+5. SupportVectorMachine: Se utiliza `LinearSVC` con `class_weight="balanced"` y calibracion para exponer `predict_proba`.
