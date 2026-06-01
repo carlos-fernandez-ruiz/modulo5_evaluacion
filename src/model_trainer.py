@@ -3,6 +3,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -16,6 +17,9 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVC
+from sklearn.tree import DecisionTreeClassifier
+from xgboost import XGBClassifier
 
 try:
     from .data_loader_simple import TARGET_COLUMN, load_and_preprocess
@@ -29,7 +33,7 @@ RANDOM_STATE = 42
 TEST_SIZE = 0.2
 CV_FOLDS = 5
 
-MODELS = ("logistic_regression", "random_forest", "neural_network")
+MODELS = ("logistic_regression", "decision_tree", "random_forest", "gradient_boosting", "support_vector_machine", "neural_network")
 VARIANTS = ("full", "without_deposit_type", "without_deposit_type_and_parking")
 TRAIN_VARIANTS_ORDER = ("full", "without_deposit_type", "without_deposit_type_and_parking")
 
@@ -191,8 +195,26 @@ def build_estimator(model_name):
     if model_name == "logistic_regression":
         return LogisticRegression(max_iter=500, C=10, solver="liblinear", random_state=RANDOM_STATE)
 
+    if model_name == "decision_tree":
+        return DecisionTreeClassifier(max_depth=14, min_samples_leaf=40, class_weight="balanced", random_state=RANDOM_STATE)
+
     if model_name == "random_forest":
         return RandomForestClassifier(n_estimators=300, random_state=RANDOM_STATE, min_samples_split=5, min_samples_leaf=2, max_features=0.5, max_depth=None, class_weight="balanced")
+
+    if model_name == "gradient_boosting":
+        return XGBClassifier(
+            n_estimators=180,
+            learning_rate=0.05,
+            max_depth=4,
+            subsample=0.9,
+            colsample_bytree=0.9,
+            eval_metric="logloss",
+            random_state=RANDOM_STATE,
+            n_jobs=1,
+        )
+
+    if model_name == "support_vector_machine":
+        return CalibratedClassifierCV(estimator=LinearSVC(C=1.0, class_weight="balanced", random_state=RANDOM_STATE, max_iter=5000), method="sigmoid", cv=3)
 
     if model_name == "neural_network":
         return KerasNeuralNetwork()
@@ -201,7 +223,7 @@ def build_estimator(model_name):
 
 
 def requires_scaling(model_name):
-    return model_name in {"logistic_regression", "neural_network"}
+    return model_name in {"logistic_regression", "support_vector_machine", "neural_network"}
 
 
 def default_param_grid(model_name):
@@ -211,11 +233,33 @@ def default_param_grid(model_name):
             "solver": ["liblinear"],
         }
 
+    if model_name == "decision_tree":
+        return {
+            "criterion": ["gini", "entropy"],
+            "max_depth": [6, 10, 14, None],
+            "min_samples_leaf": [20, 40, 80],
+            "class_weight": [None, "balanced"],
+        }
+
     if model_name == "random_forest":
         return {
             "n_estimators": [100, 200],
             "max_depth": [None, 10, 20],
             "min_samples_leaf": [1, 2],
+        }
+
+    if model_name == "gradient_boosting":
+        return {
+            "n_estimators": [120, 180],
+            "learning_rate": [0.05, 0.1],
+            "max_depth": [3, 4],
+            "subsample": [0.8, 1.0],
+        }
+
+    if model_name == "support_vector_machine":
+        return {
+            "estimator__C": [0.1, 1, 10],
+            "estimator__class_weight": [None, "balanced"],
         }
 
     if model_name == "neural_network":
