@@ -1,6 +1,9 @@
+from pathlib import Path
 from typing import Any
 
+import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from model_trainer import train as _train, MODELS, VARIANTS
@@ -10,6 +13,12 @@ from .predictor import predict as _predict
 
 
 app = FastAPI(title="Api para entrenar modelos de ML y hacer predicciones")
+
+SAMPLE_CSV_PATH = Path("data/dataset_practica_final.csv")
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+NON_INPUT_COLUMNS = ["is_canceled", "reservation_status", "reservation_status_date"]
+
+_sample_df: pd.DataFrame | None = None
 
 
 class TrainRequest(BaseModel):
@@ -77,3 +86,21 @@ def predict_endpoint(model_id: str, req: PredictRequest):
 @app.get("/models")
 def list_models_endpoint():
     return list_models()
+
+
+@app.get("/sample")
+def sample_endpoint():    
+    global _sample_df
+    if _sample_df is None:
+        if not SAMPLE_CSV_PATH.exists():
+            raise HTTPException(status_code=404, detail=f"CSV no encontrado en '{SAMPLE_CSV_PATH}'")
+        _sample_df = pd.read_csv(SAMPLE_CSV_PATH)
+
+    row = _sample_df.sample(n=1).iloc[0].to_dict()
+    for column in NON_INPUT_COLUMNS:
+        row.pop(column, None)
+    return {k: (None if pd.isna(v) else v) for k, v in row.items()}
+
+
+
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

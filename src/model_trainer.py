@@ -66,7 +66,6 @@ CONTINUOUS_COLUMNS = [
     "total_nights",
 ]
 
-# Columnas muy sesgadas a la derecha: log1p antes de escalar mejora LR y NN.
 LOG_COLUMNS = [
     "lead_time",
     "days_in_waiting_list",

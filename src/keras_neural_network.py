@@ -13,15 +13,14 @@ class KerasNeuralNetwork:
         self.model = models.Sequential([
             layers.Input(shape=(X.shape[1],)),
             layers.Dense(64, activation="relu"),
-            layers.Dropout(0.3),
+            layers.Dropout(0.5),
             layers.Dense(32, activation="relu"),
-            layers.Dropout(0.3),
             layers.Dense(1, activation="sigmoid"),
         ])
         self.model.compile(
             optimizer=keras.optimizers.Adam(1e-3),
             loss="binary_crossentropy",
-            metrics=["accuracy"],
+            metrics=["accuracy", keras.metrics.AUC(name="auc")],
         )
         early_stopping = keras.callbacks.EarlyStopping(
             monitor="val_loss", patience=8, restore_best_weights=True

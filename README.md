@@ -29,6 +29,25 @@ es mayor (habitación vacía) que predecir una cancelación que al final no se p
 no tan critico como para usar recall unicamente.
 
 
+## Como ejecutar el proyecto
+
+1. Crear el entorno e instalar dependencias:
+
+   python -m venv env-modulo5
+   source env-modulo5/bin/activate
+   pip install -r requirements.txt
+
+2. Arrancar la API y la web desde la raíz del proyecto:
+
+   PYTHONPATH=src uvicorn api:app --reload --port 8000
+
+   Abrir http://localhost:8000/ en el navegador. Desde la web se puede:
+   - Entrenar un modelo (eligiendo modelo y variante).
+   - Ver los modelos entrenados con sus métricas.
+   - Cargar una reserva de ejemplo y predecir si se cancela.
+
+   La variante `all` entrena los tres modelos seguidos.
+
 
 ## Estructura del proyecto
 
@@ -39,13 +58,15 @@ modulo5_evaluacion/
 │   ├── processed/dataset_preprocessed.parquet# Datos preprocesados (generados por el notebook)
 │   └── dataset_practica_final.csv            # Copia del dataset original
 ├── notebooks/                                # EDA y experimentación
-│   ├── evaluacion.ipynb                       # EDA + preprocesado (fuente de verdad)
+│   ├── evaluacion.ipynb                       # EDA + preprocesado
 │   └── evaluacionModelos.ipynb                # Comparativa de modelos
 ├── src/
 │   ├── data_loader_simple.py                  # Carga y preprocesado del CSV crudo
 │   ├── model_trainer.py                       # Split, escalado, entrenamiento y evaluación
+│   ├── keras_neural_network.py                # Modelo de red neuronal de Keras
 │   └── api/                                   # API REST (FastAPI)
-│       ├── main.py                            # Endpoints /train, /predict, /models
+        ├── static                             # Web donde interactuar con la api
+│       ├── main.py                            # Endpoints /train, /predict, /models, /sample
 │       ├── model_store.py                     # Persistencia de modelos entrenados
 │       └── predictor.py                       # Inferencia sobre filas crudas
 ├── models/                                    # Modelos entrenados (joblib + metadata.json)
@@ -142,6 +163,8 @@ El flujo está separado en módulos reutilizables:
      bajo `models/<model_name>__<variant>__<timestamp>/`.
    - `predictor.predict`: reaplica el mismo preprocesado y escalado a filas crudas.
 
+4. Web sencilla para interactuar con la api — [src/api/](src/api/)
+
 
 ## Anotaciones clave
 
@@ -156,3 +179,37 @@ El flujo está separado en módulos reutilizables:
 4. GradientBoosting: Se integra como modelo boosting de la rama de arboles usando XGBoost (`XGBClassifier`)
 
 5. SupportVectorMachine: Se utiliza `LinearSVC` con `class_weight="balanced"` y calibracion para exponer `predict_proba`.
+
+## Resultados y conclusiones
+
+Métricas sobre el conjunto de test, para los tres modelos y las tres variantes.
+
+| Modelo | Variante | Accuracy | Recall (clase 1) | F1 (clase 1) | ROC-AUC |
+|-|-|-|-|-|-|
+| Regresión logística | full | 0.814 | 0.625 | 0.715 | 0.864 |
+| Regresión logística | without_deposit_type | 0.796 | 0.650 | 0.704 | 0.847 |
+| Regresión logística | without_deposit_type_and_parking | 0.791 | 0.628 | 0.692 | 0.833 |
+| Random Forest | full | 0.866 | 0.758 | 0.808 | 0.931 |
+| Random Forest | without_deposit_type | 0.866 | 0.759 | 0.808 | 0.931 |
+| Random Forest | without_deposit_type_and_parking | 0.861 | 0.743 | 0.799 | 0.924 |
+| Red neuronal (Keras) | full | 0.828 | 0.640 | 0.735 | 0.897 |
+| Red neuronal (Keras) | without_deposit_type | 0.822 | 0.633 | 0.726 | 0.891 |
+| Red neuronal (Keras) | without_deposit_type_and_parking | 0.812 | 0.595 | 0.702 | 0.876 |
+
+Baseline (predecir siempre "no cancela"): 62.7%
+
+Conclusiones:
+
+- El Random Forest es el mejor modelo en todas las variantes (F1 ~0.81, ROC-AUC ~0.93)
+  La red neuronal queda segunda (F1 0.735) y la regresión logística tercera (F1 0.70)
+- Quitar `deposit_type` casi no cambia nada: en el Random Forest el F1 se mantiene igual
+  (0.808) y en la logística incluso sube un poco el recall (0.603 → 0.650). El modelo no
+  depende de esa variable sospechosa de leakage.
+- Quitar además el parking baja poco en todos los modelos (Random Forest F1 0.799,
+  red neuronal 0.702, logística 0.692). Por eso la variante conservadora, que solo usa
+  variables cuyo mecanismo existiría en cualquier PMS, es defendible.
+- El recall es el punto clave en todos los modelos: el  Random Forest detecta el 76% de
+  las cancelaciones, la red neuronal el 64% y la logística entre el 60 y el 65%.
+  En el análisis del problema se parte de la base que no detectar una cancelación es lo 
+  más caro, por lo que se podría ajustar el umbral de decisión si esto es así. Por defecto
+  se utiliza un umbral de 0.5

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Predicción de cancelaciones de reservas</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --border: #d9dee3;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --green: #16a34a;
+      --red: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 1.25rem 1.5rem;
+    }
+    header h1 { margin: 0; font-size: 1.4rem; }
+    header p { margin: 0.25rem 0 0; opacity: 0.9; font-size: 0.9rem; }
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      display: grid;
+      gap: 1.5rem;
+    }
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+    }
+    section h2 {
+      margin: 0 0 1rem;
+      font-size: 1.1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .field { margin-bottom: 0.9rem; }
+    select, input[type="text"], textarea {
+      width: 100%;
+      padding: 0.5rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: #fff;
+    }
+    textarea {
+      font-family: ui-monospace, "Cascadia Code", "Courier New", monospace;
+      font-size: 0.82rem;
+      resize: vertical;
+    }
+    button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.55rem 1.1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--primary-dark); }
+    button.secondary { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+    button.secondary:hover { background: #eef2ff; }
+    button:disabled { opacity: 0.6; cursor: progress; }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+    .row .field { flex: 1; min-width: 200px; margin-bottom: 0; }
+    .actions { margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 0.9rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th, td { text-align: left; padding: 0.45rem 0.55rem; border-bottom: 1px solid var(--border); }
+    th { background: #f8fafc; }
+    tbody tr:hover { background: #f8fafc; }
+    .hint { font-size: 0.78rem; color: var(--muted); margin: 0.3rem 0 0; }
+    .result-card {
+      margin-top: 1rem;
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      display: none;
+    }
+    .result-card.cancela { border-color: var(--red); background: #fef2f2; }
+    .result-card.no-cancela { border-color: var(--green); background: #f0fdf4; }
+    .result-card .clase { font-size: 1.15rem; font-weight: 700; }
+    .result-card.cancela .clase { color: var(--red); }
+    .result-card.no-cancela .clase { color: var(--green); }
+    .result-card .prob { font-size: 0.9rem; color: var(--muted); }
+    .error { color: var(--red); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Predicción de cancelaciones de reservas hoteleras</h1>
+    <p>Interfaz mínima para entrenar modelos y predecir sobre la API de Machine Learning.</p>
+  </header>
+
+  <main>
+    <!-- Sección 1 — Entrenamiento -->
+    <section>
+      <h2>1. Entrenar un modelo</h2>
+      <div class="row">
+        <div class="field">
+          <label for="model-name">Modelo</label>
+          <select id="model-name">
+            <option value="logistic_regression">logistic_regression</option>
+            <option value="random_forest">random_forest</option>
+            <option value="neural_network">neural_network</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="variant">Variante</label>
+          <select id="variant">
+            <option value="full">full</option>
+            <option value="without_deposit_type">without_deposit_type</option>
+            <option value="without_deposit_type_and_parking">without_deposit_type_and_parking</option>
+            <option value="all">all (lento — entrena 3 modelos)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="csv-path">Ruta del CSV</label>
+          <input type="text" id="csv-path" value="data/dataset_practica_final.csv">
+        </div>
+      </div>
+      <p class="hint">La variante <strong>all</strong> entrena los 3 modelos de forma consecutiva y puede tardar varios minutos; durante ese tiempo la web parecerá congelada.</p>
+      <div class="actions">
+        <button id="btn-train" onclick="entrenar()">Entrenar</button>
+      </div>
+      <pre id="train-output" style="display:none;"></pre>
+    </section>
+
+    <!-- Sección 2 — Modelos disponibles -->
+    <section>
+      <h2>2. Modelos disponibles</h2>
+      <div class="actions" style="margin-top:0;">
+        <button class="secondary" onclick="refrescarModelos()">Refrescar lista</button>
+      </div>
+      <div id="models-table-wrapper" style="margin-top:1rem;">
+        <p class="hint">Pulsa «Refrescar lista» para cargar los modelos entrenados.</p>
+      </div>
+    </section>
+
+    <!-- Sección 3 — Predicción -->
+    <section>
+      <h2>3. Predecir una reserva</h2>
+      <div class="field">
+        <label for="model-id">Modelo a usar</label>
+        <select id="model-id">
+          <option value="">— (refresca la lista de modelos) —</option>
+        </select>
+      </div>
+      <div class="actions" style="margin-top:0;">
+        <button class="secondary" onclick="cargarMuestra()">Cargar muestra aleatoria</button>
+      </div>
+      <div class="field" style="margin-top:1rem;">
+        <label for="reserva-json">Reserva (JSON editable)</label>
+        <textarea id="reserva-json" rows="20" placeholder='Pulsa «Cargar muestra aleatoria» para rellenar este campo con una reserva del dataset.'></textarea>
+        <p class="hint">Puedes editar cualquier valor del JSON antes de predecir. Los tipos (números, texto, null) se respetan tal cual.</p>
+      </div>
+      <div class="actions">
+        <button id="btn-predict" onclick="predecir()">Predecir</button>
+      </div>
+      <div id="result-card" class="result-card">
+        <div class="clase" id="result-clase"></div>
+        <div class="prob" id="result-prob"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    async function leerError(resp) {
+      try {
+        const data = await resp.json();
+        return data.detail ? JSON.stringify(data.detail) : JSON.stringify(data);
+      } catch (e) {
+        return resp.statusText || ("HTTP " + resp.status);
+      }
+    }
+
+    // --- Sección 1: Entrenamiento ---
+    async function entrenar() {
+      const btn = document.getElementById("btn-train");
+      const out = document.getElementById("train-output");
+      out.style.display = "block";
+      out.textContent = "Entrenando… (puede tardar, no cierres la página)";
+      btn.disabled = true;
+      try {
+        const resp = await fetch("/train", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            csv_path: document.getElementById("csv-path").value,
+            model_name: document.getElementById("model-name").value,
+            variant: document.getElementById("variant").value,
+          }),
+        });
+        if (!resp.ok) {
+          out.textContent = "Error al entrenar: " + (await leerError(resp));
+          return;
+        }
+        const data = await resp.json();
+        out.textContent = JSON.stringify(data, null, 2);
+        await refrescarModelos();
+      } catch (e) {
+        out.textContent = "Error de red: " + e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // --- Sección 2: Modelos disponibles ---
+    async function refrescarModelos() {
+      const wrapper = document.getElementById("models-table-wrapper");
+      try {
+        const resp = await fetch("/models");
+        if (!resp.ok) {
+          wrapper.innerHTML = '<p class="error">Error al listar modelos: ' + (await leerError(resp)) + "</p>";
+          return;
+        }
+        const modelos = await resp.json();
+        if (!modelos.length) {
+          wrapper.innerHTML = '<p class="hint">No hay modelos entrenados todavía.</p>';
+          actualizarSelectModelos([]);
+          return;
+        }
+        let html = "<table><thead><tr>" +
+          "<th>model_id</th><th>modelo</th><th>variante</th><th>creado</th><th>f1</th><th>roc_auc</th>" +
+          "</tr></thead><tbody>";
+        for (const m of modelos) {
+          const f1 = m.metrics && m.metrics.f1 != null ? m.metrics.f1.toFixed(3) : "—";
+          const auc = m.metrics && m.metrics.roc_auc != null ? m.metrics.roc_auc.toFixed(3) : "—";
+          html += "<tr>" +
+            "<td>" + m.model_id + "</td>" +
+            "<td>" + m.model_name + "</td>" +
+            "<td>" + m.variant + "</td>" +
+            "<td>" + (m.created_at || "—") + "</td>" +
+            "<td>" + f1 + "</td>" +
+            "<td>" + auc + "</td>" +
+            "</tr>";
+        }
+        html += "</tbody></table>";
+        wrapper.innerHTML = html;
+        actualizarSelectModelos(modelos);
+      } catch (e) {
+        wrapper.innerHTML = '<p class="error">Error de red: ' + e.message + "</p>";
+      }
+    }
+
+    function actualizarSelectModelos(modelos) {
+      const select = document.getElementById("model-id");
+      const previo = select.value;
+      select.innerHTML = "";
+      if (!modelos.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "— (no hay modelos) —";
+        select.appendChild(opt);
+        return;
+      }
+      for (const m of modelos) {
+        const opt = document.createElement("option");
+        opt.value = m.model_id;
+        opt.textContent = m.model_id;
+        select.appendChild(opt);
+      }
+      if (previo && modelos.some(m => m.model_id === previo)) {
+        select.value = previo;
+      }
+    }
+
+    // --- Sección 3: Predicción ---
+    async function cargarMuestra() {
+      const area = document.getElementById("reserva-json");
+      try {
+        const resp = await fetch("/sample");
+        if (!resp.ok) {
+          area.value = "Error al cargar muestra: " + (await leerError(resp));
+          return;
+        }
+        const row = await resp.json();
+        area.value = JSON.stringify(row, null, 2);
+      } catch (e) {
+        area.value = "Error de red: " + e.message;
+      }
+    }
+
+    function mostrarResultado({ error, prediccion, probabilidad }) {
+      const card = document.getElementById("result-card");
+      const clase = document.getElementById("result-clase");
+      const prob = document.getElementById("result-prob");
+      card.style.display = "block";
+      card.classList.remove("cancela", "no-cancela");
+
+      if (error) {
+        clase.textContent = "⚠ " + error;
+        clase.style.color = "var(--red)";
+        prob.textContent = "";
+        return;
+      }
+      clase.style.color = "";
+      const cancela = prediccion === 1;
+      card.classList.add(cancela ? "cancela" : "no-cancela");
+      clase.textContent = cancela ? "Cancela la reserva" : "No cancela la reserva";
+      prob.textContent = "Probabilidad de cancelación: " + (probabilidad * 100).toFixed(1) + "%";
+    }
+
+    async function predecir() {
+      const modelId = document.getElementById("model-id").value;
+      if (!modelId) {
+        mostrarResultado({ error: "Selecciona un modelo (refresca la lista de modelos)." });
+        return;
+      }
+
+      let reserva;
+      try {
+        reserva = JSON.parse(document.getElementById("reserva-json").value);
+      } catch (e) {
+        mostrarResultado({ error: "JSON inválido: " + e.message });
+        return;
+      }
+
+      const btn = document.getElementById("btn-predict");
+      btn.disabled = true;
+      try {
+        const resp = await fetch("/predict/" + encodeURIComponent(modelId), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rows: [reserva] }),
+        });
+        if (!resp.ok) {
+          mostrarResultado({ error: "Error al predecir: " + (await leerError(resp)) });
+          return;
+        }
+        const data = await resp.json();
+        mostrarResultado({
+          prediccion: data.predictions[0],
+          probabilidad: data.probabilities[0],
+        });
+      } catch (e) {
+        mostrarResultado({ error: "Error de red: " + e.message });
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Cargar la lista de modelos al abrir la página.
+    refrescarModelos();
+  </script>
+</body>
+</html>

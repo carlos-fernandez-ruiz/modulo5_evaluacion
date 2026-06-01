@@ -18,7 +18,7 @@ def load_and_preprocess(csv_path):
 def preprocess(df_raw, drop_invalid_rows=True):
     df = df_raw.copy()
 
-    df = df.drop(columns=["reservation_status", "reservation_status_date", "arrival_date_year"])
+    df = df.drop(columns=["reservation_status", "reservation_status_date", "arrival_date_year"], errors="ignore")
     df["children"] = df["children"].fillna(0).astype("int64")
     df["has_agent"] = df["agent"].notna().astype(int)
     df["has_company"] = df["company"].notna().astype(int)
